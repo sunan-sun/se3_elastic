@@ -1,12 +1,12 @@
 import numpy as np
-from .src.generate_transfer import start_adapting
+from .src.generate_transfer import start_adapting, get_joints
 
 
 
 def _rearrange_clusters(Prior, Mu, Sigma, att):
-    """Transpose Mu to be fixed"""
+    """Transpose Mu to be fixed....alternative method to order"""
 
-    dist_list = [np.linalg.norm(mu - att) for mu in Mu.T]
+    dist_list = [-np.linalg.norm(mu - att) for mu in Mu.T] # negative norm hence sort in descending order
     idx = np.array(dist_list).argsort()
 
     ds_gmm = {
@@ -70,6 +70,11 @@ class elastic_pos_class:
 
         self.T_s = T_s
         self.T_e = T_e
+
+
+    def get_joints(self):
+
+        return get_joints([self.data.T], self.old_gmm_struct)        
 
 
 

@@ -122,6 +122,40 @@ def demo_vs_adjust_gmm(p_in, demo, gmm, old_gmm_struct, new_ori, gmm_struct):
 
 
 
+def plot_gmm(p_in, gmm, gmm_struct):
+
+    label = gmm.assignment_arr
+    K     = gmm.K
+
+    colors = ["r", "g", "b", "k", 'c', 'm', 'y', 'crimson', 'lime'] + [
+    "#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(200)]
+
+    color_mapping = np.take(colors, label)
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(projection='3d')
+
+    ax.scatter(p_in[:, 0], p_in[:, 1], p_in[:, 2], 'o', color=color_mapping[:], s=1, alpha=0.4, label="Demonstration")
+
+    for k in range(K):
+        loc = gmm_struct["Mu"][:, k]
+        ax.text(loc[0], loc[1], loc[2], str(k + 1), fontsize=20)
+
+    ax.axis('equal')
+
+    ax.set_xlabel(r'$\xi_1$', labelpad=20)
+    ax.set_ylabel(r'$\xi_2$', labelpad=20)
+    ax.set_zlabel(r'$\xi_3$', labelpad=20)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax.zaxis.set_major_locator(MaxNLocator(nbins=4))
+
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+
+
 
 def ori_debug(ori_tra, new_ori_tra, old_anchor, new_anchor, gmm, new_gmm):
 
