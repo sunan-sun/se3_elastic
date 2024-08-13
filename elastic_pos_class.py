@@ -1,13 +1,16 @@
 import numpy as np
+from collections import OrderedDict
 from .src.generate_transfer import start_adapting, get_joints
 
 
 
-def _rearrange_clusters(Prior, Mu, Sigma, att):
+def _rearrange_clusters(Prior, Mu, Sigma, att, assignment_arr):
     """Transpose Mu to be fixed....alternative method to order"""
 
-    dist_list = [-np.linalg.norm(mu - att) for mu in Mu.T] # negative norm hence sort in descending order
-    idx = np.array(dist_list).argsort()
+    # dist_list = [-np.linalg.norm(mu - att) for mu in Mu.T] # negative norm hence sort in descending order
+    # idx = np.array(dist_list).argsort()
+
+    idx  = list(OrderedDict.fromkeys(assignment_arr))
 
     ds_gmm = {
         "Prior": Prior[idx],
@@ -21,7 +24,7 @@ def _rearrange_clusters(Prior, Mu, Sigma, att):
 
 
 class elastic_pos_class:
-    def __init__(self, Prior_list, Mu_list, Sigma_list, p_att, p_in, p_out) -> None:
+    def __init__(self, Prior_list, Mu_list, Sigma_list, p_att, p_in, p_out, assignment_arr) -> None:
         self.p_in = p_in
         self.p_out = p_out
         self.data = np.hstack((p_in, p_out))
@@ -38,7 +41,7 @@ class elastic_pos_class:
             Mu[:, k] = Mu_list[k, :]
             Sigma[k, :, :] = Sigma_list[k, :, :]
 
-        self.old_gmm_struct = _rearrange_clusters(Prior, Mu, Sigma, p_att)
+        self.old_gmm_struct = _rearrange_clusters(Prior, Mu, Sigma, p_att, assignment_arr)
 
         self.p_att = p_att
 
