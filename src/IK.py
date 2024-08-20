@@ -46,7 +46,7 @@ def solveIK(anchor_arr, target_start_T, target_end_T, traj_dis, scale_ratio=None
     
 
 def solveTraj(new_anchor, dt):
-    total_step = 100
+    total_step = 300
     init_traj = np.linspace(new_anchor[0], new_anchor[-1], total_step)
 
     force_last_segment = (new_anchor[-1] + new_anchor[-2]) / 2

@@ -1,60 +1,51 @@
 import numpy as np
 from collections import OrderedDict
-from .src.generate_transfer import start_adapting, get_joints
+# from .src.generate_transfer import start_adapting, get_joints
 
+from .src.gaussian_kinematics import GaussianKinematics3D
+from .src.find_joints import _get_joints
+from .src.IK import solveIK, solveTraj
 
+# def _rearrange_clusters(Prior, Mu, Sigma, att, assignment_arr):
 
-def _rearrange_clusters(Prior, Mu, Sigma, att, assignment_arr):
-    """Transpose Mu to be fixed....alternative method to order"""
+#     idx  = list(OrderedDict.fromkeys(assignment_arr))
 
-    # dist_list = [-np.linalg.norm(mu - att) for mu in Mu.T] # negative norm hence sort in descending order
-    # idx = np.array(dist_list).argsort()
+#     ds_gmm = {
+#         "Prior": Prior[idx],
+#         "Mu": Mu[:, idx],
+#         "Sigma": Sigma[idx, :, :]
+#     }
 
-    idx  = list(OrderedDict.fromkeys(assignment_arr))
-
-    ds_gmm = {
-        "Prior": Prior[idx],
-        "Mu": Mu[:, idx],
-        "Sigma": Sigma[idx, :, :]
-    }
-
-    return ds_gmm
+#     return ds_gmm
 
 
 
 
 class elastic_pos_class:
-    def __init__(self, Prior_list, Mu_list, Sigma_list, p_att, p_in, p_out, assignment_arr) -> None:
-        self.p_in = p_in
-        self.p_out = p_out
-        self.data = np.hstack((p_in, p_out))
-
+    def __init__(self, Prior_list, Mu_arr, Sigma_arr, first_joint, last_joint) -> None:
         K = len(Prior_list)
         N = 3
 
-        Prior = np.zeros((K))
-        Mu = np.zeros((N, K))
-        Sigma = np.zeros((K, N, N))
+        self.old_gmm_struct = {
+            "Prior": np.array(Prior_list),
+            "Mu": Mu_arr.T,
+            "Sigma": Sigma_arr
+        }
 
-        for k in range(K):
-            Prior[k] = Prior_list[k]
-            Mu[:, k] = Mu_list[k, :]
-            Sigma[k, :, :] = Sigma_list[k, :, :]
-
-        self.old_gmm_struct = _rearrange_clusters(Prior, Mu, Sigma, p_att, assignment_arr)
-
-        self.p_att = p_att
+        self.first_joint = first_joint
+        self.last_joint  = last_joint
+        
 
 
-    def _geo_constr(self):
-        # v1 = np.random.rand(3,)
-        v1 = self.p_in[25] - self.p_in[0]
+
+    def _geo_constr(self, x_start, x_end, v_start, v_end):
+        v1 = v_start
         v1 /= np.linalg.norm(v1)
         v2 = np.cross(v1, np.array([0, 1, 0]))
         v3 = np.cross(v1, v2)
         R_s = np.column_stack((v1, v2, v3))
 
-        u1 = self.p_in[-1] - self.p_in[-100]
+        u1 = v_end
         u1 /= np.linalg.norm(u1)
         u2 = np.cross(u1, np.array([0, 1, 0]))
         u3 = np.cross(u1, u2)
@@ -64,26 +55,49 @@ class elastic_pos_class:
         T_e = np.zeros((4, 4))
 
         T_s[:3, :3] = R_s
-        T_s[:3, -1] = self.p_in[0]
+        T_s[:3, -1] = x_start
         T_s[-1, -1] = 1
 
         T_e[:3, :3] = R_e
-        T_e[:3, -1] = self.p_in[-1]
+        T_e[:3, -1] = x_end
         T_e[-1, -1] = 1
 
         self.T_s = T_s
         self.T_e = T_e
 
 
-    def get_joints(self):
 
-        return get_joints([self.data.T], self.old_gmm_struct)        
+    # def get_joints(self):
+    #     return get_joints([self.data.T], self.old_gmm_struct)        
 
-
+        
 
     def start_adapting(self):
-        self._geo_constr()
-        traj_data, gmm_struct, old_anchor, new_anchor = start_adapting([self.data.T], self.old_gmm_struct, self.T_s, self.T_e)
+        
+        # Read variable
+        first_joint = self.first_joint
+        last_joint  = self.last_joint
+        old_gmm_struct = self.old_gmm_struct
 
-        gmm_struct['Mu'][:, -1] = self.p_att # move the last Gaussian mean to attractor
-        return traj_data, self.old_gmm_struct ,gmm_struct, old_anchor, new_anchor
+        pi     = old_gmm_struct["Prior"]
+        mu     = old_gmm_struct["Mu"].T  
+        sigma  = old_gmm_struct["Sigma"]
+
+        anchor_arr = _get_joints(mu, sigma, first_joint, last_joint) # anchor from the beginning to the end
+
+        # Update Gaussians
+        gk = GaussianKinematics3D(pi, mu, sigma, anchor_arr)
+        traj_dis = np.linalg.norm(last_joint - first_joint)
+        new_anchor_point = solveIK(anchor_arr, self.T_s, self.T_e, traj_dis, scale_ratio=None)  # solve for new anchor points
+        _, mean_arr, cov_arr = gk.update_gaussian_transforms(new_anchor_point)
+        new_gmm = {
+            "Mu": mean_arr.T,
+            "Sigma": cov_arr,
+            "Prior": pi
+        }
+
+        # Generate new traj
+        plot_traj, traj_dot_arr = solveTraj(np.copy(new_anchor_point), dt=0.06)  # solve for new trajectory
+        pos_and_vel = np.vstack((plot_traj[1:].T, traj_dot_arr.T))
+
+        return [pos_and_vel], old_gmm_struct, new_gmm, new_anchor_point, anchor_arr, plot_traj[-1, :]

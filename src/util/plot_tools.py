@@ -16,7 +16,7 @@ mpl.rc('font', **font)
 
 
 
-def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
+def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori=[]):
 
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(projection='3d')
@@ -47,18 +47,19 @@ def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
             line_plot = line_rot + loc
             ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c, alpha=0.3,linewidth=1)
 
-    for i in np.linspace(0, len(new_ori), num=10, endpoint=False, dtype=int):
-        r = new_ori[i]
-        loc = adjust[i, :]
-        # loc = demo[i, :]
+    if len(new_ori)!=0:
+        for i in np.linspace(0, len(new_ori), num=10, endpoint=False, dtype=int):
+            r = new_ori[i]
+            loc = adjust[i, :]
+            # loc = demo[i, :]
 
-        for j, (axis, c) in enumerate(zip((ax.xaxis, ax.yaxis, ax.zaxis),
-                                            colors)):
-            line = np.zeros((2, 3))
-            line[1, j] = scale
-            line_rot = r.apply(line)
-            line_plot = line_rot + loc
-            ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c,  linewidth=1)
+            for j, (axis, c) in enumerate(zip((ax.xaxis, ax.yaxis, ax.zaxis),
+                                                colors)):
+                line = np.zeros((2, 3))
+                line[1, j] = scale
+                line_rot = r.apply(line)
+                line_plot = line_rot + loc
+                ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c,  linewidth=1)
 
     ax.axis('equal')
     ax.legend(ncol=4, loc="upper center")
@@ -78,7 +79,7 @@ def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
 
 
 
-def demo_vs_adjust_gmm(p_in, demo, gmm, old_gmm_struct, new_ori, gmm_struct):
+def demo_vs_adjust_gmm(p_in, demo, gmm, old_gmm_struct, gmm_struct, new_ori=[]):
 
     label = gmm.assignment_arr
     K     = gmm.K

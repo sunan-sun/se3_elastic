@@ -87,12 +87,14 @@ class elastic_ori_class:
 
     
         T_s[:3, :3] = R_s
-        T_s[:3, -1] = v1
-        # T_s[:3, -1] = self.q_in[0]
+        # T_s[:3, -1] = v1
+        T_s[:3, -1] = self.q_in[0]
         T_s[-1, -1] = 1
 
         T_e[:3, :3] = R_e
-        T_e[:3, -1] = self.q_in[-1]
+        T_e[:3, -1] = v1
+        # T_e[:3, -1] = self.q_in[-1]
+
         T_e[-1, -1] = 1
 
         self.T_s = T_s
