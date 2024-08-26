@@ -6,19 +6,6 @@ from .src.gaussian_kinematics import GaussianKinematics3D
 from .src.find_joints import _get_joints
 from .src.IK import solveIK, solveTraj
 
-# def _rearrange_clusters(Prior, Mu, Sigma, att, assignment_arr):
-
-#     idx  = list(OrderedDict.fromkeys(assignment_arr))
-
-#     ds_gmm = {
-#         "Prior": Prior[idx],
-#         "Mu": Mu[:, idx],
-#         "Sigma": Sigma[idx, :, :]
-#     }
-
-#     return ds_gmm
-
-
 
 
 class elastic_pos_class:
@@ -95,9 +82,11 @@ class elastic_pos_class:
             "Sigma": cov_arr,
             "Prior": pi
         }
+        print(anchor_arr)
+        print(new_anchor_point)
 
         # Generate new traj
-        plot_traj, traj_dot_arr = solveTraj(np.copy(new_anchor_point), dt=0.06)  # solve for new trajectory
+        plot_traj, traj_dot_arr = solveTraj(np.copy(new_anchor_point), dt=0.02)  # solve for new trajectory
         pos_and_vel = np.vstack((plot_traj[1:].T, traj_dot_arr.T))
 
         return [pos_and_vel], old_gmm_struct, new_gmm, new_anchor_point, anchor_arr, plot_traj[-1, :]

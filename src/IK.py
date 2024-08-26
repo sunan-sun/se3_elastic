@@ -50,8 +50,6 @@ def solveTraj(new_anchor, dt):
     init_traj = np.linspace(new_anchor[0], new_anchor[-1], total_step)
 
     force_last_segment = (new_anchor[-1] + new_anchor[-2]) / 2
-
-    
     new_anchor = np.insert(new_anchor, -1, force_last_segment, axis=0)
 
     diffs = np.diff(new_anchor, axis=0)
@@ -60,10 +58,10 @@ def solveTraj(new_anchor, dt):
     accumulated_distances = np.cumsum(distances)
     progress = accumulated_distances / total_distance
 
-
     step_idx = np.array((total_step-1) * progress, dtype=int)
+ 
 
-    #fix start and end direction
+    # fix start and end direction
     if 1 not in step_idx:
         start_dir = (new_anchor[1] - new_anchor[0]) / np.linalg.norm(new_anchor[1] - new_anchor[0])
         start_mag = np.linalg.norm(init_traj[1] - init_traj[0])
@@ -82,9 +80,15 @@ def solveTraj(new_anchor, dt):
     #fix start position
     step_idx = np.insert(step_idx, 0, 0)
 
+
+    #remove repeating index
+    _, unique_indices = np.unique(step_idx, return_index=True)
+    step_idx = step_idx[unique_indices]
+    new_anchor = new_anchor[unique_indices]
+
+
     LTE = LaplacianEdit(init_traj)
     print("edited traj")
-    print(new_anchor)
     print(step_idx)
     edited_traj = LTE.get_modified_traj_cvxpy(new_anchor, step_idx)
 

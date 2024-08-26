@@ -16,7 +16,7 @@ mpl.rc('font', **font)
 
 
 
-def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori=[]):
+def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
 
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(projection='3d')
