@@ -82,8 +82,8 @@ class elastic_pos_class:
             "Sigma": cov_arr,
             "Prior": pi
         }
-        print(anchor_arr)
-        print(new_anchor_point)
+        # print(anchor_arr)
+        print("new_cov", new_gmm["Sigma"])
 
         # Generate new traj
         plot_traj, traj_dot_arr = solveTraj(np.copy(new_anchor_point), dt=0.02)  # solve for new trajectory
