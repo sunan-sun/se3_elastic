@@ -35,7 +35,7 @@ def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
 
     colors = ("#FF6666", "#005533", "#1199EE")  # Colorblind-safe RGB
     x_min, x_max = ax.get_xlim()
-    scale = (x_max - x_min)
+    scale = (x_max - x_min) * 0.4
     for i in np.linspace(0, len(q_in), num=10, endpoint=False, dtype=int):
         r = q_in[i]
         loc = demo[i, :]
@@ -45,7 +45,7 @@ def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
             line[1, j] = scale
             line_rot = r.apply(line)
             line_plot = line_rot + loc
-            ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c, alpha=0.3,linewidth=1)
+            ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c, alpha=0.6,linewidth=1)
 
     if len(new_ori)!=0:
         for i in np.linspace(0, len(new_ori), num=10, endpoint=False, dtype=int):
