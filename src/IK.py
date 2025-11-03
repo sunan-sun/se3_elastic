@@ -4,10 +4,14 @@ import cvxpy as cp
 
 
 def solveIK(anchor_arr, target_start_T, target_end_T, traj_dis, scale_ratio=None) -> None:
-    dim = anchor_arr.shape[1]
+    """
+    Constrained first anchor (starting point or idx=0) to be the translation part of target_start_T
+    Constrained last anchor (end point or idx=-1) to be the translation part of target_end_T
 
-    constraints = [anchor_arr[0]]
-    constraints_idx = [0]
+    Constrained the second anchor (leaving point or idx=1) to be along the direction of target_start_T's x-axis
+    Constrained the second last anchor (approaching point or idx=-2) to be along the direction of target_end_T's x-axis
+    """
+    dim = anchor_arr.shape[1]
 
     if scale_ratio is None:
         if target_start_T is not None and target_end_T is not None:
@@ -15,28 +19,30 @@ def solveIK(anchor_arr, target_start_T, target_end_T, traj_dis, scale_ratio=None
         else:
             scale_ratio = 1.0
 
-    if target_start_T is not None:
-        constraints[-1] = target_start_T[0:dim, -1]
-        start_vec_dir = (target_start_T[0:dim, 0] / np.linalg.norm(target_start_T[0:dim, 0]))
-        start_vec = start_vec_dir * np.linalg.norm(anchor_arr[1] - anchor_arr[0]) * scale_ratio
-        leave_pt = constraints[-1] + start_vec
-        constraints.append(leave_pt)
-        constraints_idx.append(1)
+    constraints_idx = []
+    constraints = []
+
+    start_pt  = target_start_T[0:dim, -1]
+    start_vec = target_start_T[0:dim, 0] # no need to normalize, as it is already a unit vector
+    start_vec *= np.linalg.norm(anchor_arr[1] - anchor_arr[0]) * scale_ratio 
+    leave_pt = start_pt + start_vec
+    constraints_idx.append(0)
+    constraints.append(start_pt)
+    constraints_idx.append(1)
+    constraints.append(leave_pt)
 
 
-    end_pt = anchor_arr[-1]
-    if target_end_T is not None:
-        end_pt = target_end_T[0:dim, -1]
-        end_vec_dir = - (target_end_T[0:dim, 0] / np.linalg.norm(target_end_T[0:dim, 0]))
-        reversed_end_vec = end_vec_dir * np.linalg.norm(anchor_arr[-1] - anchor_arr[-2]) * scale_ratio
-        approach_pt = end_pt + reversed_end_vec
-        constraints.append(approach_pt)
-        constraints_idx.append(-2)
-    constraints.append(end_pt)
+    end_pt = target_end_T[0:dim, -1]
+    end_vec = - target_end_T[0:dim, 0] # end_vec now points aways from the end point
+    reversed_end_vec = end_vec * np.linalg.norm(anchor_arr[-1] - anchor_arr[-2]) * scale_ratio
+    approach_pt = end_pt + reversed_end_vec # hence making sense to do addition here
+    constraints_idx.append(-2)
+    constraints.append(approach_pt)
     constraints_idx.append(-1)
+    constraints.append(end_pt)
 
-    print('# of constraints', len(constraints))
-    print('constraint index', constraints_idx)
+    # print('# of constraints', len(constraints))
+    # print('constraint index', constraints_idx)
 
     LTE = LaplacianEdit(anchor_arr)
 
@@ -45,40 +51,51 @@ def solveIK(anchor_arr, target_start_T, target_end_T, traj_dis, scale_ratio=None
     return Ps
     
 
-def solveTraj(new_anchor, dt):
-    total_step = 300
+def solveTraj(new_anchor, M, dt):
+    """
+    Given all the anchor points (including start and end points), we can approximate their indices on the trajectory;
+    then we can constrain the points of those indices to be the anchor points, and then solve for the full trajectory
+    """
+
+    total_step = M
     init_traj = np.linspace(new_anchor[0], new_anchor[-1], total_step)
 
-    force_last_segment = (new_anchor[-1] + new_anchor[-2]) / 2
-    new_anchor = np.insert(new_anchor, -1, force_last_segment, axis=0)
+    # force_last_segment = (new_anchor[-1] + new_anchor[-2]) / 2
+    # new_anchor = np.insert(new_anchor, -1, force_last_segment, axis=0)
+
+    # diffs = np.diff(new_anchor, axis=0)
+    # distances = np.linalg.norm(diffs, axis=1)
+    # total_distance = distances.sum()
+    # accumulated_distances = np.cumsum(distances)
+    # progress = accumulated_distances / total_distance
+
+    # step_idx = np.array((total_step-1) * progress, dtype=int)
+    
 
     diffs = np.diff(new_anchor, axis=0)
     distances = np.linalg.norm(diffs, axis=1)
-    total_distance = distances.sum()
-    accumulated_distances = np.cumsum(distances)
-    progress = accumulated_distances / total_distance
-
-    step_idx = np.array((total_step-1) * progress, dtype=int)
- 
+    cumulative_dist = np.insert(np.cumsum(distances), 0, 0.0)
+    progress = cumulative_dist / cumulative_dist[-1]  # normalize to [0,1]
+    step_idx = np.round(progress * (M - 1)).astype(int)
 
     # fix start and end direction
-    if 1 not in step_idx:
-        start_dir = (new_anchor[1] - new_anchor[0]) / np.linalg.norm(new_anchor[1] - new_anchor[0])
-        start_mag = np.linalg.norm(init_traj[1] - init_traj[0])
-        start_vec = start_mag * start_dir
-        new_anchor = np.insert(new_anchor, 1, init_traj[0] + start_vec, axis=0)
-        step_idx = np.insert(step_idx, 0, 1)
+    # if 1 not in step_idx:
+    #     start_dir = (new_anchor[1] - new_anchor[0]) / np.linalg.norm(new_anchor[1] - new_anchor[0])
+    #     start_mag = np.linalg.norm(init_traj[1] - init_traj[0])
+    #     start_vec = start_mag * start_dir
+    #     new_anchor = np.insert(new_anchor, 1, init_traj[0] + start_vec, axis=0)
+    #     step_idx = np.insert(step_idx, 0, 1)
 
-    if total_step - 2 not in step_idx:
-        end_dir = (new_anchor[-2] - new_anchor[-1]) / np.linalg.norm(new_anchor[-2] - new_anchor[-1])
-        end_mag = np.linalg.norm(init_traj[-2] - init_traj[-1])
-        end_vec = end_mag * end_dir
-        new_anchor = np.insert(new_anchor, -1, init_traj[-1] + end_vec, axis=0)
-        step_idx = np.insert(step_idx, -1, total_step-2)
+    # if total_step - 2 not in step_idx:
+    #     end_dir = (new_anchor[-2] - new_anchor[-1]) / np.linalg.norm(new_anchor[-2] - new_anchor[-1])
+    #     end_mag = np.linalg.norm(init_traj[-2] - init_traj[-1])
+    #     end_vec = end_mag * end_dir
+    #     new_anchor = np.insert(new_anchor, -1, init_traj[-1] + end_vec, axis=0)
+    #     step_idx = np.insert(step_idx, -1, total_step-2)
 
 
     #fix start position
-    step_idx = np.insert(step_idx, 0, 0)
+    # step_idx = np.insert(step_idx, 0, 0)
 
 
     #remove repeating index
@@ -88,8 +105,8 @@ def solveTraj(new_anchor, dt):
 
 
     LTE = LaplacianEdit(init_traj)
-    print("edited traj")
-    print(step_idx)
+    # print("edited traj")
+    # print(step_idx)
     edited_traj = LTE.get_modified_traj_cvxpy(new_anchor, step_idx)
 
     edited_dot_traj = np.diff(edited_traj, axis=0) / dt
@@ -142,8 +159,8 @@ class LaplacianEdit:
     
     def get_modified_traj_cvxpy(self, constr, constr_idx):
         x = cp.Variable(self.P.shape)
-        A = np.vstack((self.L, self.P_bar))
-        B = np.vstack((self.delta, self.C))
+        # A = np.vstack((self.L, self.P_bar))
+        # B = np.vstack((self.delta, self.C))
         objective = cp.Minimize(cp.sum_squares(self.L@x - self.delta))
         
         constraints = []
@@ -151,7 +168,7 @@ class LaplacianEdit:
             constraints.append(x[constr_idx[i]] == constr[i])
 
         prob = cp.Problem(objective, constraints)
-        result = prob.solve(verbose=True)
+        result =prob.solve(verbose=False)
         # print("The optimal value is", result)
         # print("The optimal x is")
         # print(x.value)

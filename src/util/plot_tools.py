@@ -16,7 +16,7 @@ mpl.rc('font', **font)
 
 
 
-def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
+def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in=None, new_ori=None):
 
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(projection='3d')
@@ -33,33 +33,35 @@ def demo_vs_adjust(demo, adjust, old_anchor, new_anchor, q_in, new_ori):
     for i in range(new_anchor.shape[0]):
         ax.scatter(new_anchor[i, 0], new_anchor[i, 1], new_anchor[i, 2], 'o', facecolors='none', edgecolors='red',linewidth=2,  s=100)
 
-    colors = ("#FF6666", "#005533", "#1199EE")  # Colorblind-safe RGB
-    x_min, x_max = ax.get_xlim()
-    scale = (x_max - x_min) * 0.4
-    for i in np.linspace(0, len(q_in), num=10, endpoint=False, dtype=int):
-        r = q_in[i]
-        loc = demo[i, :]
-        for j, (axis, c) in enumerate(zip((ax.xaxis, ax.yaxis, ax.zaxis),
-                                            colors)):
-            line = np.zeros((2, 3))
-            line[1, j] = scale
-            line_rot = r.apply(line)
-            line_plot = line_rot + loc
-            ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c, alpha=0.6,linewidth=1)
 
-    if len(new_ori)!=0:
-        for i in np.linspace(0, len(new_ori), num=10, endpoint=False, dtype=int):
-            r = new_ori[i]
-            loc = adjust[i, :]
-            # loc = demo[i, :]
-
+    if q_in is not None and new_ori is not None:
+        colors = ("#FF6666", "#005533", "#1199EE")  # Colorblind-safe RGB
+        x_min, x_max = ax.get_xlim()
+        scale = (x_max - x_min) * 0.4
+        for i in np.linspace(0, len(q_in), num=10, endpoint=False, dtype=int):
+            r = q_in[i]
+            loc = demo[i, :]
             for j, (axis, c) in enumerate(zip((ax.xaxis, ax.yaxis, ax.zaxis),
                                                 colors)):
                 line = np.zeros((2, 3))
                 line[1, j] = scale
                 line_rot = r.apply(line)
                 line_plot = line_rot + loc
-                ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c,  linewidth=1)
+                ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c, alpha=0.6,linewidth=1)
+
+        if len(new_ori)!=0:
+            for i in np.linspace(0, len(new_ori), num=10, endpoint=False, dtype=int):
+                r = new_ori[i]
+                loc = adjust[i, :]
+                # loc = demo[i, :]
+
+                for j, (axis, c) in enumerate(zip((ax.xaxis, ax.yaxis, ax.zaxis),
+                                                    colors)):
+                    line = np.zeros((2, 3))
+                    line[1, j] = scale
+                    line_rot = r.apply(line)
+                    line_plot = line_rot + loc
+                    ax.plot(line_plot[:, 0], line_plot[:, 1], line_plot[:, 2], c,  linewidth=1)
 
     ax.axis('equal')
     ax.legend(ncol=4, loc="upper center")

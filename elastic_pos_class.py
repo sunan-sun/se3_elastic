@@ -9,18 +9,16 @@ from .src.IK import solveIK, solveTraj
 
 
 class elastic_pos_class:
-    def __init__(self, Prior_list, Mu_arr, Sigma_arr, first_joint, last_joint) -> None:
-        K = len(Prior_list)
-        N = 3
+    def __init__(self, Prior_list, Mu_arr, Sigma_arr, x_0, x_att) -> None:
 
-        self.old_gmm_struct = {
+        self.old_gmm = {
             "Prior": np.array(Prior_list),
-            "Mu": Mu_arr.T,
+            "Mu": Mu_arr,
             "Sigma": Sigma_arr
         }
 
-        self.first_joint = first_joint
-        self.last_joint  = last_joint
+        self.first_joint = x_0
+        self.last_joint  = x_att
         
 
 
@@ -59,34 +57,40 @@ class elastic_pos_class:
 
         
 
-    def start_adapting(self):
+    def start_adapting(self, M, dt):
         
         # Read variable
         first_joint = self.first_joint
         last_joint  = self.last_joint
-        old_gmm_struct = self.old_gmm_struct
+        old_gmm = self.old_gmm
 
-        pi     = old_gmm_struct["Prior"]
-        mu     = old_gmm_struct["Mu"].T  
-        sigma  = old_gmm_struct["Sigma"]
+        pi     = old_gmm["Prior"]
+        mu     = old_gmm["Mu"]
+        sigma  = old_gmm["Sigma"]
 
-        anchor_arr = _get_joints(mu, sigma, first_joint, last_joint) # anchor from the beginning to the end
+        old_anchor = _get_joints(mu, sigma, first_joint, last_joint) # anchor from the beginning to the end
 
         # Update Gaussians
-        gk = GaussianKinematics3D(pi, mu, sigma, anchor_arr)
+        gk = GaussianKinematics3D(pi, mu, sigma, old_anchor)
         traj_dis = np.linalg.norm(last_joint - first_joint)
-        new_anchor_point = solveIK(anchor_arr, self.T_s, self.T_e, traj_dis, scale_ratio=None)  # solve for new anchor points
-        _, mean_arr, cov_arr = gk.update_gaussian_transforms(new_anchor_point)
+        new_anchor = solveIK(old_anchor, self.T_s, self.T_e, traj_dis, scale_ratio=None)  # solve for new anchor points
+        _, mean_arr, cov_arr = gk.update_gaussian_transforms(new_anchor)
+        
         new_gmm = {
-            "Mu": mean_arr.T,
-            "Sigma": cov_arr,
-            "Prior": pi
+            "Prior": pi,
+            "Mu": mean_arr,
+            "Sigma": cov_arr
         }
         # print(anchor_arr)
-        print("new_cov", new_gmm["Sigma"])
+        # print("new_cov", new_gmm["Sigma"])
 
         # Generate new traj
-        plot_traj, traj_dot_arr = solveTraj(np.copy(new_anchor_point), dt=0.02)  # solve for new trajectory
-        pos_and_vel = np.vstack((plot_traj[1:].T, traj_dot_arr.T))
+        traj_arr, traj_dot_arr = solveTraj(np.copy(new_anchor), M, dt)  # solve for new trajectory
+        # pos_and_vel = np.hstack((traj_arr[1:], traj_dot_arr))
 
-        return [pos_and_vel], old_gmm_struct, new_gmm, new_anchor_point, anchor_arr, plot_traj[-1, :]
+
+        new_pos = traj_arr[1:]
+        new_vel = traj_dot_arr
+        new_att = new_pos[-1, :]
+
+        return new_pos, new_vel, old_gmm, new_gmm, old_anchor, new_anchor, new_att
