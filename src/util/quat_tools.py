@@ -1,12 +1,28 @@
 import sys
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from scipy.linalg import null_space
 
 
 """
 @note all operations below, of which the return is a vector, return 1-D array, 
       unless multiple inputs are given in vectorized operations
 """
+
+def map(att_vec, q):
+    """vectorized operation"""
+    att_basis = null_space(att_vec.as_quat().reshape(1, -1))
+    v, _, _, _ = np.linalg.lstsq(att_basis, q.T, rcond=None) #only works if second input is either 1D or 2D (dimension by number of points)
+
+    if v.ndim ==2 and v.shape[1] ==1:
+        return v[:, 0]  # 1d array
+    else:
+        return v.T #number by dimension
+
+def inv_map(att_vec, v):
+    att_basis = null_space(att_vec.as_quat().reshape(1, -1)) 
+    q_tangent = att_basis @ v.T # att_basis is 4 by 3, hence v should be 3 by number of points               
+    return q_tangent.T #  number of points by 4
 
 
 def quat_mean(q_list):
@@ -219,7 +235,7 @@ def riem_exp(x, v):
     """
     Used during 
          i) running savgol filter
-        ii) simulation where x is a rotation object, v is a numpy array
+        ii) simulation where x is a rotation object, v is a numpy array 
     """
 
     x = _process_x(x)
